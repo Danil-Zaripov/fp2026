@@ -1,0 +1,41 @@
+(lang dune 3.7)
+
+(generate_opam_files true)
+
+(cram enable)
+
+(license "LGPL-3.0-or-later WITH OCaml-LGPL-linking-exception")
+
+(authors "Danil Zaripov <danilzaripov@yahoo.com>")
+
+(maintainers "Danil Zaripov <danilzaripov@yahoo.com>")
+
+(bug_reports "https://github.com/Kakadu/fp25")
+
+(homepage "https://github.com/Kakadu/fp25")
+
+(package
+ (name Zaripov) ; FIXME and regenerate .opam file using 'dune build @install'
+ (synopsis "FIXME An interpreter for language")
+ (description
+  "FIXME. A longer description, for example, which are the most interesing features being supported, etc.")
+ (documentation "https://kakadu.github.io/fp25/docs/Lambda")
+ (version 0.1)
+ (depends
+  (dune
+   (= "3.21.0"))
+  (angstrom
+   (= "0.16.0"))
+  base
+  (ppx_inline_test :with-test)
+  ppx_expect
+  ppx_deriving
+  bisect_ppx
+  (odoc :with-doc)
+  (ocamlformat
+   (and
+    :build
+    (= "0.26.2")))
+  ; base
+  ; After adding dependencies to 'dune' files add the same dependecies here too
+  ))
