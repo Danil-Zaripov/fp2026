@@ -1,8 +1,3 @@
-(** Copyright 2021-2023, Kakadu and contributors *)
-
-(** SPDX-License-Identifier: LGPL-3.0-or-later *)
-
-(* TODO: implement parser here *)
 open Angstrom
 
 let is_space = function
@@ -34,6 +29,18 @@ let pp_error ppf = function
   | `Parsing_error s -> Format.fprintf ppf "%s" s
 ;;
 
+let chainl1 e op =
+  let rec go acc = lift2 (fun f x -> f acc x) op e >>= go <|> return acc in
+  e >>= fun init -> go init
+;;
+
+let%test _ =
+  let p1 = char 'a' *> char 'b' in
+  match parse_string p1 ~consume:All "ab" with
+  | Ok _ -> true
+  | _ -> false
+;;
+
 let parse_lam =
   let single pack =
     fix (fun _ ->
@@ -51,7 +58,7 @@ let parse_lam =
     many1 (spaces *> pack.single pack <* spaces)
     >>= function
     | [] -> fail "bad syntax"
-    | x :: xs -> return @@ List.fold_left (fun l r -> Ast.App (l, r)) x xs
+    | x :: xs -> return @@ List.fold_left (fun l r -> Ast.App (l, r, [])) x xs
   in
   { single; apps }
 ;;

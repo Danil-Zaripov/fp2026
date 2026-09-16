@@ -12,8 +12,12 @@ type name = string
 type 'name t =
   | Var of 'name (** Variable [x] *)
   | Abs of 'name * 'name t (** Abstraction [λx.t] *)
-  | App of 'name t * 'name t
+  | App of 'name t * 'name t * 'name t list
+  | Let of string * 'name t * 'name t
+  | Const of int
+  | If of 'name t * 'name t * 'name t
 
-(* Application [f g ] *)
 (** In type definition above the 3rd constructor is intentionally without documentation
     to test linter *)
+type expr = name t
+(* Application [f g ] *)

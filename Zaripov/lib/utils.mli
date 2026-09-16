@@ -13,7 +13,7 @@ val is_free_in : string -> string Ast.t -> bool
 
 val var : 'a -> 'a Ast.t
 val abs : 'a -> 'a Ast.t -> 'a Ast.t
-val app : 'a Ast.t -> 'a Ast.t -> 'a Ast.t
+val app : 'a Ast.t -> 'a Ast.t -> 'a Ast.t list -> 'a Ast.t
 
 module type MONAD_FAIL = sig
   include Base.Monad.S2

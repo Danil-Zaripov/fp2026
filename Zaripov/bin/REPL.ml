@@ -26,14 +26,15 @@ include struct
         (match helper b with
          | WIP b2 -> wip (abs x b2)
          | Done b2 -> fin (abs x b2))
-      | App (f, arg) ->
+      | App (f, arg, lst) ->
         (match helper f with
-         | WIP f2 -> wip (app f2 arg)
+         | WIP f2 -> wip (app f2 arg lst)
          | Done (Abs (x, body)) ->
            (match helper arg with
             | Done arg -> wip (Lambda.subst x ~by:arg body)
-            | WIP arg -> wip (app f arg))
-         | Done f2 -> fin (App (f2, arg)))
+            | WIP arg -> wip (app f arg lst))
+         | Done f2 -> fin (App (f2, arg, lst)))
+      | _ -> failwith "TODO"
     in
     let rec loop t =
       match helper t with
@@ -42,7 +43,7 @@ include struct
         Format.printf " -- %a\n%!" Pprintast.pp_hum x;
         loop x
     in
-    let on_app _ f arg = loop (app f arg) in
+    let on_app _ f arg lst = loop (app f arg lst) in
     let on_abs _ f x = loop (abs f x) in
     let on_var _ x = loop (var x) in
     { Lambda.on_var; on_abs; on_app }
@@ -124,8 +125,8 @@ let () =
         , "" )
       ]
       (fun _ ->
-        Stdlib.Format.eprintf "Positioned arguments are not supported\n";
-        Stdlib.exit 1)
+         Stdlib.Format.eprintf "Positioned arguments are not supported\n";
+         Stdlib.exit 1)
       "Read-Eval-Print-Loop for Utyped Lambda Calculus"
   in
   run_single opts.dump_parsetree opts.stop_after (fun ast ->

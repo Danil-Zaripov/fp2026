@@ -25,10 +25,11 @@ in the dune file
   > (\x.\y.x)(\u.u)((\x. x x)(\x.x x))
   warning: here-document at line 1 delimited by end-of-file (wanted `EOF')
   Parsed result: (App (
-                    (App ((Abs (x, (Abs (y, (Var x))))), (Abs (u, (Var u))))),
-                    (App ((Abs (x, (App ((Var x), (Var x))))),
-                       (Abs (x, (App ((Var x), (Var x)))))))
-                    ))
+                    (App ((Abs (x, (Abs (y, (Var x))))), (Abs (u, (Var u))), 
+                       [])),
+                    (App ((Abs (x, (App ((Var x), (Var x), [])))),
+                       (Abs (x, (App ((Var x), (Var x), [])))), [])),
+                    []))
   Evaluated result: (λ u . u)
 Below we redirect contents of the file to the evaluator
   $ ../bin/REPL.exe -dparsetree -stop-after parsing   < lam_1+1.txt
@@ -39,16 +40,19 @@ Below we redirect contents of the file to the evaluator
                              (Abs (x,
                                 (App ((Var m),
                                    (App ((Var f),
-                                      (App ((Var n), (App ((Var f), (Var x)))))
-                                      ))
-                                   ))
+                                      (App ((Var n),
+                                         (App ((Var f), (Var x), [])), 
+                                         [])),
+                                      [])),
+                                   []))
                                 ))
                              ))
                           ))
                        )),
-                    (App ((Abs (f, (Abs (x, (App ((Var f), (Var x))))))),
-                       (Abs (f, (Abs (x, (App ((Var f), (Var x)))))))))
-                    ))
+                    (App ((Abs (f, (Abs (x, (App ((Var f), (Var x), [])))))),
+                       (Abs (f, (Abs (x, (App ((Var f), (Var x), [])))))), 
+                       [])),
+                    []))
 
   $ ../bin/REPL.exe -ao   < lam_1+1.txt
   Evaluated result: (λ n f x _x -> ((f (n (f x))) _x))

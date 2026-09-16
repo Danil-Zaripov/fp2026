@@ -5,7 +5,8 @@
  (modules_without_implementation ast)
  (libraries base angstrom)
  (preprocess
-  (pps ppx_deriving.show))
+  (pps ppx_deriving.show ppx_inline_test))
+ (inline_tests)
  (instrumentation
   (backend bisect_ppx)))
 

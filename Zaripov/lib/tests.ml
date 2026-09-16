@@ -25,22 +25,22 @@ let pp = Printast.pp_named
 
 let%expect_test _ =
   Format.printf "%a" pp (parse_optimistically "x y");
-  [%expect {| (App ((Var x), (Var y))) |}]
+  [%expect {| (App ((Var x), (Var y), [])) |}]
 ;;
 
 let%expect_test _ =
   Format.printf "%a" pp (parse_optimistically "(x y)");
-  [%expect {| (App ((Var x), (Var y))) |}]
+  [%expect {| (App ((Var x), (Var y), [])) |}]
 ;;
 
 let%expect_test _ =
   Format.printf "%a" pp (parse_optimistically "(\\x . x x)");
-  [%expect {| (Abs (x, (App ((Var x), (Var x))))) |}]
+  [%expect {| (Abs (x, (App ((Var x), (Var x), [])))) |}]
 ;;
 
 let%expect_test _ =
   Format.printf "%a" pp (parse_optimistically "(λf.λx. f (x x))");
-  [%expect {| (Abs (f, (Abs (x, (App ((Var f), (App ((Var x), (Var x))))))))) |}]
+  [%expect {| (Abs (f, (Abs (x, (App ((Var f), (App ((Var x), (Var x), [])), [])))))) |}]
 ;;
 
 let _ = Lambda_lib.Interpret.parse_and_run

@@ -16,7 +16,7 @@ val subst : string -> by:string Ast.t -> string Ast.t -> string Ast.t
 type strat =
   { on_var : strat -> Ast.name -> string Ast.t
   ; on_abs : strat -> Ast.name -> string Ast.t -> string Ast.t
-  ; on_app : strat -> string Ast.t -> string Ast.t -> string Ast.t
+  ; on_app : strat -> string Ast.t -> string Ast.t -> string Ast.t list -> string Ast.t
   }
 
 val apply_strat : strat -> string Ast.t -> string Ast.t
