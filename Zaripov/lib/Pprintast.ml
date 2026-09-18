@@ -18,7 +18,9 @@ let pp ?(compact = true) =
   in
   let rec pp fmt = function
     | Var s -> Format.fprintf fmt "%s" s
-    | App (l, r, _) -> Format.fprintf fmt "(%a %a)" pp l pp r
+    | App (l, r, xs) ->
+      Format.fprintf fmt "%a" pp l;
+      r :: xs |> List.iter (fun expr -> Format.fprintf fmt " %a" pp expr)
     | Abs (x, Abs (y, Var z)) when x = z && y <> z && compact ->
       if compact then Format.fprintf fmt "⊤"
     | Abs (x, Abs (y, Var z)) when y = z && x <> z && compact -> Format.fprintf fmt "⊥"
@@ -56,7 +58,11 @@ let pp ?(compact = true) =
     | Abs (v1, Abs (v2, t)) when compact ->
       Format.fprintf fmt "(λ %a %a -> %a)" (mangle t) v1 (mangle t) v2 pp t
     | Abs (x, t) -> Format.fprintf fmt "(λ %a . %a)" (mangle t) x pp t
-    | _ -> failwith "TODO"
+    | Const n -> Format.fprintf fmt "%d" n
+    | Let (var, assign_part, in_part) ->
+      Format.fprintf fmt "let %s = %a in %a" var pp assign_part pp in_part
+    | If (cond, then_expr, else_expr) ->
+      Format.fprintf fmt "if %a then %a else %a" pp cond pp then_expr pp else_expr
   in
   pp
 ;;

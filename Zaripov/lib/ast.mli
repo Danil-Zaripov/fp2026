@@ -16,6 +16,7 @@ type 'name t =
   | Let of string * 'name t * 'name t
   | Const of int
   | If of 'name t * 'name t * 'name t
+[@@deriving show]
 
 (** In type definition above the 3rd constructor is intentionally without documentation
     to test linter *)
