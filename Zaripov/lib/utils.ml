@@ -16,7 +16,7 @@ let free_vars =
   let rec helper acc = function
     | Var s -> s :: acc
     | Abs (s, l) -> acc @ list_remove s (helper [] l)
-    | App (l, r, _) -> helper (helper acc r) l
+    | App (l, r, lst) -> helper (r :: lst |> List.map ~f:(helper acc) |> List.concat) l
     | _ -> failwith "TODO"
   in
   helper []

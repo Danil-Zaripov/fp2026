@@ -8,7 +8,7 @@
   (pps ppx_deriving.show ppx_inline_test))
  (inline_tests)
  (instrumentation
-  (backend bisect_ppx)))
+  (backend bisect_ppx_ng)))
 
 (library
  (name tests)
@@ -17,5 +17,14 @@
  (preprocess
   (pps ppx_expect ppx_deriving.show))
  (instrumentation
-  (backend bisect_ppx))
+  (backend bisect_ppx_ng))
  (inline_tests))
+
+(test
+ (name parser_tests)
+ (modules parser_tests)
+ (libraries lambda_lib qcheck)
+ (preprocess
+  (pps ppx_expect ppx_deriving.show))
+ (instrumentation
+  (backend bisect_ppx_ng)))

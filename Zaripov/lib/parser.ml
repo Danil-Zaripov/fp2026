@@ -96,8 +96,17 @@ let parse_app atom =
   many (spaces *> atom) >>= fun lst -> return @@ Ast.App (main, first, lst)
 ;;
 
+let parse_paren_expr expr = string "(" *> spaces *> expr <* spaces <* string ")"
+
 let parse_atom expr =
-  conde [ parse_var; parse_const; parse_let expr; parse_fun expr; parse_if expr ]
+  conde
+    [ parse_var
+    ; parse_const
+    ; parse_let expr
+    ; parse_fun expr
+    ; parse_if expr
+    ; parse_paren_expr expr
+    ]
 ;;
 
 let parse_expr =
@@ -127,10 +136,18 @@ let%test "if expr" =
   | Error err -> failwith err
 ;;
 
-type dispatch =
-  { apps : dispatch -> string Ast.t Angstrom.t
-  ; single : dispatch -> string Ast.t Angstrom.t
-  }
+let%test _ =
+  match
+    parse_string
+      ~consume:All
+      parse_expr
+      "(fun x -> fun y -> x)(fun u -> u)((fun x -> x x)(fun x -> x x))"
+  with
+  | Ok v ->
+    (match v with
+     | _ -> true)
+  | Error err -> failwith err
+;;
 
 let pp_error ppf = function
   | `Parsing_error s -> Format.fprintf ppf "%s" s
@@ -142,32 +159,8 @@ let varchar =
     | _ -> false)
 ;;
 
-let parse_lam =
-  let single pack =
-    fix (fun _ ->
-      conde
-        [ char '(' *> pack.apps pack <* char ')' <?> "Parentheses expected"
-        ; ((string "λ" <|> string "\\") *> spaces *> varchar
-           <* spaces
-           <* (return () <* char '.' <|> string "->" *> return ())
-           >>= fun var ->
-           pack.apps pack >>= fun b -> return (Ast.Abs (String.make 1 var, b)))
-        ; (varchar <* spaces >>= fun c -> return (Ast.Var (String.make 1 c)))
-        ])
-  in
-  let apps pack =
-    many1 (spaces *> pack.single pack <* spaces)
-    >>= function
-    | [] -> fail "bad syntax"
-    | x :: xs -> return @@ List.fold_left (fun l r -> Ast.App (l, r, [])) x xs
-  in
-  { single; apps }
-;;
-
 let parse str =
-  match
-    Angstrom.parse_string (parse_lam.apps parse_lam) ~consume:Angstrom.Consume.All str
-  with
+  match Angstrom.parse_string parse_expr ~consume:Angstrom.Consume.All str with
   | Result.Ok x -> Result.Ok x
   | Error er -> Result.Error (`Parsing_error er)
 ;;

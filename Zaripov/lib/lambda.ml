@@ -32,7 +32,7 @@ let subst x ~by:v =
   let rec helper = function
     | Var y when String.equal y x -> v
     | Var y -> Var y
-    | App (l, r, []) -> app (helper l) (helper r) []
+    | App (l, r, lst) -> app (helper l) (helper r) (List.map ~f:helper lst)
     | Abs (y, b) when String.equal y x -> abs y b
     | Abs (y, t) when is_free_in y v ->
       let frees = free_vars v @ free_vars t in

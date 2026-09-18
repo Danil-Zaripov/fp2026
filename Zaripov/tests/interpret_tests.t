@@ -10,27 +10,36 @@ you could put it into separate file. Thise will need stanza `(cram (deps demo_in
 in the dune file
 
   $ ../bin/REPL.exe -cbv -dparsetree <<EOF
-  > \f.x
+  > fun f -> x
   warning: here-document at line 1 delimited by end-of-file (wanted `EOF')
   Parsed result: (Abs (f, (Var x)))
-  Evaluated result: (λ _ . x)
+  Evaluated result: (fun f -> x)
   $ ../bin/REPL.exe -dparsetree <<EOF
   > garbage242
   warning: here-document at line 1 delimited by end-of-file (wanted `EOF')
-  Error: : end_of_input
+  Parsed result: (App ((Var garbage), (Const 242), []))
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Lambda_lib__Lambda.nor_strat.on_app in file "lib/lambda.ml", line 88, characters 17-35
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]
 
 
 
   $ ../bin/REPL.exe -no -dparsetree <<EOF
-  > (\x.\y.x)(\u.u)((\x. x x)(\x.x x))
+  > (fun x -> fun y -> x)(fun u -> u)((fun x -> x x)(fun x -> x x))
   warning: here-document at line 1 delimited by end-of-file (wanted `EOF')
-  Parsed result: (App (
-                    (App ((Abs (x, (Abs (y, (Var x))))), (Abs (u, (Var u))), 
-                       [])),
-                    (App ((Abs (x, (App ((Var x), (Var x), [])))),
-                       (Abs (x, (App ((Var x), (Var x), [])))), [])),
-                    []))
-  Evaluated result: (λ u . u)
+  Parsed result: (App ((Abs (x, (Abs (y, (Var x))))), (Abs (u, (Var u))),
+                    [(App ((Abs (x, (App ((Var x), (Var x), [])))),
+                        (Abs (x, (App ((Var x), (Var x), [])))), []))
+                      ]
+                    ))
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]
 Below we redirect contents of the file to the evaluator
   $ ../bin/REPL.exe -dparsetree -stop-after parsing   < lam_1+1.txt
   Parsed result: (App (
@@ -38,44 +47,48 @@ Below we redirect contents of the file to the evaluator
                        (Abs (n,
                           (Abs (f,
                              (Abs (x,
-                                (App ((Var m),
-                                   (App ((Var f),
-                                      (App ((Var n),
-                                         (App ((Var f), (Var x), [])), 
-                                         [])),
-                                      [])),
-                                   []))
+                                (App ((Var m), (Var f),
+                                   [(Var n); (Var f); (Var x)]))
                                 ))
                              ))
                           ))
                        )),
-                    (App ((Abs (f, (Abs (x, (App ((Var f), (Var x), [])))))),
-                       (Abs (f, (Abs (x, (App ((Var f), (Var x), [])))))), 
-                       [])),
-                    []))
+                    (Abs (f, (Abs (x, (App ((Var f), (Var x), [])))))),
+                    [(Abs (f, (Abs (x, (App ((Var f), (Var x), []))))))]))
 
   $ ../bin/REPL.exe -ao   < lam_1+1.txt
-  Evaluated result: (λ n f x _x -> ((f (n (f x))) _x))
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]
   $ ../bin/REPL.exe -ao   < lam_2x1.txt
-  Evaluated result: 2
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]
 Call by value doesn't reduce under abstraction
   $ ../bin/REPL.exe -cbv   < lam_2x1.txt
-  Evaluated result: (λ z . (2 (1 z)))
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]
   $ ../bin/REPL.exe -ao -small   < lam_3x2.txt
-   -- ((λ y z -> ((λ f x -> (f (f (f x)))) (y z))) 2)
-   -- ((λ y z x -> ((y z) ((y z) ((y z) x)))) 2)
-   -- (λ z x -> ((2 z) ((2 z) ((2 z) x))))
-   -- (λ z x -> ((λ x . (z (z x))) ((2 z) ((2 z) x))))
-   -- (λ z x -> ((λ x . (z (z x))) ((λ x . (z (z x))) ((2 z) x))))
-   -- (λ z x -> ((λ x . (z (z x))) ((λ x . (z (z x))) ((λ x . (z (z x))) x))))
-   -- (λ z x -> ((λ x . (z (z x))) ((λ x . (z (z x))) (z (z x)))))
-   -- (λ z x -> ((λ x . (z (z x))) (z (z (z (z x))))))
-   -- (λ z x -> (z (z (z (z (z (z x)))))))
-  Evaluated result: (λ z x -> (z (z (z (z (z (z x)))))))
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]
   $ ../bin/REPL.exe -ao   < lam_zero.txt
-  Evaluated result: ⊥
+  Evaluated result: (fun g -> (fun y -> y))
 For 3! we use noral order reduction
   $ cat lam_fac3.txt
-  (((λ f . ((λ x . (f (x x))) (λ x . (f (x x))))) (λ s . (λ n . ((((λ n . ((n (λ x . (λ x . (λ y . y)))) (λ x . (λ y . x)))) n) (λ f . (λ x . (f x)))) (((λ x . (λ y . (λ z . (x (y z))))) (s ((λ n . (λ f . (λ x . (((n (λ g . (λ h . (h (g f))))) (λ u . x)) (λ u . u))))) n))) n))))) (λ f . (λ x . (f (f (f x))))))
+  (fun f -> (fun x -> f x x) (fun x -> f x x)) (fun s -> (fun n -> (fun n -> n (fun x -> (fun x -> (fun y -> y))) (fun x -> (fun y -> x))) n (fun f -> (fun x -> f x)) (fun x -> (fun y -> (fun z -> x y z))) s (fun n -> (fun f -> (fun x -> n (fun g -> (fun h -> h g f)) (fun u -> x) (fun u -> u)))) n n)) (fun f -> (fun x -> f f f x))
   $ ../bin/REPL.exe -no   < lam_fac3.txt
-  Evaluated result: (λ z x -> (z (z (z (z (z (z x)))))))
+  Fatal error: exception Failure("TODO")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__REPL.run_single in file "bin/REPL.ml", line 90, characters 17-25
+  Called from Dune__exe__REPL in file "bin/REPL.ml", lines 132-139, characters 2-32
+  [2]

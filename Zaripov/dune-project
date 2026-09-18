@@ -23,19 +23,20 @@
  (version 0.1)
  (depends
   (dune
-   (= "3.21.0"))
+   (>= "3.21.0"))
   (angstrom
-   (= "0.16.0"))
+   (>= "0.16.0"))
   base
   (ppx_inline_test :with-test)
   ppx_expect
   ppx_deriving
-  bisect_ppx
+  bisect_ppx_ng
+  qcheck
   (odoc :with-doc)
   (ocamlformat
    (and
     :build
-    (= "0.26.2")))
+    (= "0.29.0")))
   ; base
   ; After adding dependencies to 'dune' files add the same dependecies here too
   ))

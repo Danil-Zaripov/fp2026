@@ -3,7 +3,7 @@
  (libraries lambda_lib)
  (modules gen_tests)
  (instrumentation
-  (backend bisect_ppx)))
+  (backend bisect_ppx_ng)))
 
 (rule
  (deps ./gen_tests.exe)

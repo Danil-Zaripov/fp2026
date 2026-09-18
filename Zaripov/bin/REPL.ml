@@ -40,7 +40,7 @@ include struct
       match helper t with
       | Done x -> x
       | WIP x ->
-        Format.printf " -- %a\n%!" Pprintast.pp_hum x;
+        Format.printf " -- %a\n%!" Pprintast.pp x;
         loop x
     in
     let on_app _ f arg lst = loop (app f arg lst) in
@@ -88,7 +88,7 @@ let run_single dump_parsetree stop_after eval =
      | SA_parsing -> ()
      | SA_never ->
        let rez = eval ast in
-       Format.printf "Evaluated result: %a\n%!" Pprintast.pp_hum rez)
+       Format.printf "Evaluated result: %a\n%!" Pprintast.pp rez)
 ;;
 
 let () =
