@@ -22,6 +22,8 @@ let pp =
     | Abs (x, t) -> Format.fprintf fmt "(fun %s -> %a)" x pp t
     | Let (var, assign_part, in_part) ->
       Format.fprintf fmt "(let %s = %a in %a)" var pp assign_part pp in_part
+    | Letrec (var, assign_part, in_part) ->
+      Format.fprintf fmt "(let rec %s = %a in %a)" var pp assign_part pp in_part
     | If (cond, then_expr, else_expr) ->
       Format.fprintf fmt "(if %a then %a else %a)" pp cond pp then_expr pp else_expr
   in

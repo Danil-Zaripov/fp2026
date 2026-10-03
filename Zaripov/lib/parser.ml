@@ -27,7 +27,7 @@ let chainl1 e op =
 
 module StringSet = Set.Make (String)
 
-let keywords = [ "fun"; "in"; "let"; "if"; "then"; "else" ] |> StringSet.of_list
+let keywords = [ "fun"; "in"; "let"; "if"; "then"; "else"; "rec" ] |> StringSet.of_list
 
 let parse_var =
   varname
@@ -39,7 +39,7 @@ let parse_var =
 
 let parse_const = number >>= fun x -> return @@ Ast.Const (int_of_string x)
 
-let parse_let expr =
+let parse_let_nonrec expr =
   string "let" *> spaces *> varname
   >>= fun var ->
   spaces *> string "=" *> spaces *> expr
@@ -47,6 +47,15 @@ let parse_let expr =
   spaces *> string "in" *> spaces *> expr
   >>= fun in_part -> return @@ Ast.Let (var, assign_part, in_part)
 ;;
+
+let parse_letrec expr =
+  let* var = string "let" *> spaces *> string "rec" *> spaces *> varname in
+  let* assign_part = spaces *> string "=" *> spaces *> expr in
+  let* in_part = spaces *> string "in" *> spaces *> expr in
+  return @@ Ast.Letrec (var, assign_part, in_part)
+;;
+
+let parse_let expr = parse_let_nonrec expr <|> parse_letrec expr
 
 let%test _ =
   match
@@ -113,6 +122,17 @@ let parse_expr =
   fix (fun expr ->
     let atom = parse_atom expr in
     conde [ parse_app atom; atom ])
+;;
+
+let%test "let rec and let" =
+  match parse_string ~consume:All parse_expr "let rec x = x in let y = x in z" with
+  | Ok v ->
+    (match v with
+     | Ast.Letrec ("x", Ast.Var "x", Ast.Let ("y", Ast.Var "x", Ast.Var "z")) -> true
+     | tree ->
+       Format.eprintf "%a" Pprintast.pp tree;
+       false)
+  | Error e -> failwith e
 ;;
 
 let%test _ =

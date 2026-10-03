@@ -11,6 +11,7 @@ type 'name t = 'name Ast.t =
   | Abs of 'name * 'name t (** Abstraction [λx.t] *)
   | App of 'name t * 'name t * 'name t list
   | Let of 'name * 'name t * 'name t
+  | Letrec of 'name * 'name t * 'name t
   | Const of int
   | If of 'name t * 'name t * 'name t
 [@@deriving show { with_path = false }]
