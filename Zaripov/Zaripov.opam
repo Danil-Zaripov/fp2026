@@ -19,6 +19,7 @@ depends: [
   "ppx_deriving"
   "bisect_ppx_ng"
   "qcheck"
+  "stdune"
   "odoc" {with-doc}
   "ocamlformat" {build & = "0.29.0"}
 ]

@@ -1,9 +1,18 @@
 (library
  (name lambda_lib)
  (public_name Zaripov.Lib)
- (modules Ast Lambda Interpret Parser Printast Pprintast utils Normal)
+ (modules
+  Ast
+  Lambda
+  Interpret
+  Parser
+  Printast
+  Pprintast
+  utils
+  Normal
+  Debruijn)
  (modules_without_implementation ast)
- (libraries base angstrom)
+ (libraries base angstrom stdune)
  (preprocess
   (pps ppx_deriving.show ppx_inline_test))
  (inline_tests)
