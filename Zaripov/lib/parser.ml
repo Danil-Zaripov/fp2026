@@ -184,3 +184,9 @@ let parse str =
   | Result.Ok x -> Result.Ok x
   | Error er -> Result.Error (`Parsing_error er)
 ;;
+
+let%test _ =
+  match parse "let rec fac = fun n -> mul n (fac (dec n)) in fac 5" with
+  | Result.Ok v -> true
+  | _ -> false
+;;

@@ -78,3 +78,13 @@ let to_debruijn ast =
   in
   run @@ helper ast StringMap.empty
 ;;
+
+let straight_to_debruijn s =
+  Parser.parse s |> Stdlib.Result.get_ok |> Normal.lower |> to_debruijn
+;;
+
+let%test _ =
+  match straight_to_debruijn "fun x -> fun y -> x y" with
+  | Abs (Abs (App (Var 1, Var 0, []))) -> true
+  | _ -> false
+;;

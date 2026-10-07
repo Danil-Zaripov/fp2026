@@ -6,6 +6,7 @@ type lowered =
   | App of lowered * lowered * lowered list
   | Let of string * lowered * lowered
   | Const of int
+[@@deriving show]
 
 module StringMap = Map.Make (String)
 
@@ -100,4 +101,27 @@ let lower ast =
       return @@ App (Var ifCheckName, cond, [ then_part; else_part ])
   in
   run @@ helper ast StringMap.empty
+;;
+
+let straight_to_lower s = Parser.parse s |> Result.get_ok |> lower
+
+let%test _ =
+  match straight_to_lower "let rec fac = fun n -> mul n (fac (dec n)) in fac 5" with
+  | Let
+      ( "fac"
+      , App
+          ( Var "fix"
+          , Abs
+              ( "#fac"
+              , Abs
+                  ( "n"
+                  , App
+                      ( Var "mul"
+                      , Var "n"
+                      , [ App (Var "#fac", App (Var "dec", Var "n", []), []) ] ) ) )
+          , [] )
+      , App (Var "fac", Const 5, []) ) -> true
+  | x ->
+    Format.eprintf "%s" (show_lowered x);
+    false
 ;;
