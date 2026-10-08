@@ -65,6 +65,20 @@ let recVar var = addedGarbage ^ var
 let fixOpName = "fix"
 let ifCheckName = "#if"
 
+let z_combinator =
+  let addedGarbage = "^" in
+  let rec mistify_vars = function
+    | Ast.Abs (x, t) -> Ast.Abs (addedGarbage ^ x, mistify_vars t)
+    | Ast.App (l, r, lst) ->
+      Ast.App (mistify_vars l, mistify_vars r, List.map mistify_vars lst)
+    | Ast.Var x -> Ast.Var (addedGarbage ^ x)
+    | _ -> failwith "Unreachable"
+  in
+  Parser.parse "fun f -> (fun x -> f (fun v -> x x v)) (fun x -> f (fun v -> (x x v)))"
+  |> Result.get_ok
+  |> mistify_vars
+;;
+
 let lower ast =
   let open State in
   let rec helper = function
@@ -93,7 +107,8 @@ let lower ast =
       put new_env
       >>
       let* assign_part = helper assign_part in
-      return @@ Let (var, App (Var fixOpName, Abs (new_var, assign_part), []), in_part)
+      let* fix = helper z_combinator in
+      return @@ Let (var, App (fix, Abs (new_var, assign_part), []), in_part)
     | Ast.If (cond, then_part, else_part) ->
       let* cond = helper cond in
       let* then_part = helper then_part in
@@ -110,7 +125,7 @@ let%test _ =
   | Let
       ( "fac"
       , App
-          ( Var "fix"
+          ( x
           , Abs
               ( "#fac"
               , Abs
@@ -120,7 +135,8 @@ let%test _ =
                       , Var "n"
                       , [ App (Var "#fac", App (Var "dec", Var "n", []), []) ] ) ) )
           , [] )
-      , App (Var "fac", Const 5, []) ) -> true
+      , App (Var "fac", Const 5, []) )
+    when x = lower z_combinator -> true
   | x ->
     Format.eprintf "%s" (show_lowered x);
     false

@@ -57,6 +57,15 @@ let parse_letrec expr =
 
 let parse_let expr = parse_let_nonrec expr <|> parse_letrec expr
 
+let parse_bin s atom =
+  let* l = atom <* spaces in
+  string s
+  *> spaces
+  *>
+  let* r = atom in
+  return @@ Ast.App (Var s, l, [ r ])
+;;
+
 let%test _ =
   match
     parse_string
@@ -121,7 +130,8 @@ let parse_atom expr =
 let parse_expr =
   fix (fun expr ->
     let atom = parse_atom expr in
-    conde [ parse_app atom; atom ])
+    conde
+      [ parse_app atom; parse_bin "+" atom; parse_bin "=" atom; parse_bin "-" atom; atom ])
 ;;
 
 let%test "let rec and let" =
@@ -187,6 +197,19 @@ let parse str =
 
 let%test _ =
   match parse "let rec fac = fun n -> mul n (fac (dec n)) in fac 5" with
-  | Result.Ok v -> true
+  | Result.Ok _ -> true
   | _ -> false
+;;
+
+let%test _ =
+  match parse "let inc = fun n -> n + 1 in inc 5" with
+  | Result.Ok
+      (Ast.Let
+         ( "inc"
+         , Ast.Abs ("n", App (Var "+", Var "n", [ Const 1 ]))
+         , Ast.App (Var "inc", Const 5, []) )) -> true
+  | Result.Ok ast ->
+    Format.eprintf "%a" (Printast.pp Format.pp_print_string) ast;
+    false
+  | Result.Error (`Parsing_error er) -> failwith er
 ;;
