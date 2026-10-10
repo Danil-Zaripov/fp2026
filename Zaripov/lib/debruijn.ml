@@ -1,11 +1,11 @@
 open Stdune.Monad
 
-type deBruijn =
+type de_bruijn =
   | Const of int
   | Var of int
-  | Abs of deBruijn
-  | App of deBruijn * deBruijn * deBruijn list
-  | Let of deBruijn * deBruijn
+  | Abs of de_bruijn
+  | App of de_bruijn * de_bruijn * de_bruijn list
+  | Let of de_bruijn * de_bruijn
 [@@deriving show]
 
 module StringMap = Map.Make (String)

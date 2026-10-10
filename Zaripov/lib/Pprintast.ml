@@ -9,10 +9,8 @@
 (* Pretty printer goes here *)
 
 open Ast
-open Utils
 
 let pp =
-  let open Format in
   let rec pp fmt = function
     | Var s -> Format.fprintf fmt "%s" s
     | Const n -> Format.fprintf fmt "%d" n

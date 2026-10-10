@@ -86,7 +86,7 @@ let%test _ =
     (match v with
      | Ast.Let (x, Ast.Var y, Ast.Var z) when x = "x" && y = "y" && z = "z" -> true
      | _ ->
-       Format.eprintf "%a" (Printast.pp Format.pp_print_string) v;
+       Format.eprintf "%a" Pprintast.pp v;
        false)
   | Error e -> failwith e
 ;;
@@ -209,7 +209,7 @@ let%test _ =
          , Ast.Abs ("n", App (Var "+", Var "n", [ Const 1 ]))
          , Ast.App (Var "inc", Const 5, []) )) -> true
   | Result.Ok ast ->
-    Format.eprintf "%a" (Printast.pp Format.pp_print_string) ast;
+    Format.eprintf "%a" Pprintast.pp ast;
     false
   | Result.Error (`Parsing_error er) -> failwith er
 ;;

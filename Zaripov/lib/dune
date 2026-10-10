@@ -1,40 +1,11 @@
 (library
  (name lambda_lib)
  (public_name Zaripov.Lib)
- (modules
-  Ast
-  Lambda
-  Interpret
-  Parser
-  Printast
-  Pprintast
-  utils
-  Normal
-  Debruijn
-  Secd)
+ (modules Ast Parser Pprintast Normal Debruijn Secd)
  (modules_without_implementation ast)
  (libraries base angstrom stdune)
  (preprocess
   (pps ppx_deriving.show ppx_inline_test))
  (inline_tests)
- (instrumentation
-  (backend bisect_ppx_ng)))
-
-(library
- (name tests)
- (modules tests)
- (libraries lambda_lib)
- (preprocess
-  (pps ppx_expect ppx_deriving.show))
- (instrumentation
-  (backend bisect_ppx_ng))
- (inline_tests))
-
-(test
- (name parser_tests)
- (modules parser_tests)
- (libraries lambda_lib qcheck)
- (preprocess
-  (pps ppx_expect ppx_deriving.show))
  (instrumentation
   (backend bisect_ppx_ng)))
