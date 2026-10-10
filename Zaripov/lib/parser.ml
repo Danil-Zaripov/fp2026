@@ -14,12 +14,6 @@ let conde = function
   | h :: tl -> List.fold_left ( <|> ) h tl
 ;;
 
-type error = [ `Parsing_error of string ]
-
-let pp_error ppf = function
-  | `Parsing_error s -> Format.fprintf ppf "%s" s
-;;
-
 let chainl1 e op =
   let rec go acc = lift2 (fun f x -> f acc x) op e >>= go <|> return acc in
   e >>= fun init -> go init
@@ -66,31 +60,6 @@ let parse_bin s atom =
   return @@ Ast.App (Var s, l, [ r ])
 ;;
 
-let%test _ =
-  match
-    parse_string
-      ~consume:All
-      (string "let" *> spaces *> parse_var <* spaces <* parse_const)
-      "let xx  123"
-  with
-  | Ok v ->
-    (match v with
-     | Ast.Var x when x = "xx" -> true
-     | _ -> false)
-  | _ -> false
-;;
-
-let%test _ =
-  match parse_string ~consume:All (parse_let parse_var) "let x = y in z" with
-  | Ok v ->
-    (match v with
-     | Ast.Let (x, Ast.Var y, Ast.Var z) when x = "x" && y = "y" && z = "z" -> true
-     | _ ->
-       Format.eprintf "%a" Pprintast.pp v;
-       false)
-  | Error e -> failwith e
-;;
-
 let parse_fun expr =
   string "fun" *> spaces *> varname
   >>= fun name ->
@@ -134,50 +103,7 @@ let parse_expr =
       [ parse_app atom; parse_bin "+" atom; parse_bin "=" atom; parse_bin "-" atom; atom ])
 ;;
 
-let%test "let rec and let" =
-  match parse_string ~consume:All parse_expr "let rec x = x in let y = x in z" with
-  | Ok v ->
-    (match v with
-     | Ast.Letrec ("x", Ast.Var "x", Ast.Let ("y", Ast.Var "x", Ast.Var "z")) -> true
-     | tree ->
-       Format.eprintf "%a" Pprintast.pp tree;
-       false)
-  | Error e -> failwith e
-;;
-
-let%test _ =
-  match parse_string ~consume:All parse_expr "let x = z w in y" with
-  | Ok v ->
-    (match v with
-     | Ast.Let (x, Ast.App (Ast.Var "z", Ast.Var "w", []), Ast.Var "y") when x = "x" ->
-       true
-     | _ -> false)
-  | Error err -> failwith err
-;;
-
-let%test "if expr" =
-  match parse_string ~consume:All parse_expr "if not x then y else z" with
-  | Ok v ->
-    (match v with
-     | Ast.If (Ast.App (Ast.Var "not", Ast.Var "x", []), Ast.Var "y", Ast.Var "z") -> true
-     | _ ->
-       Format.eprintf "%a\n" Pprintast.pp v;
-       false)
-  | Error err -> failwith err
-;;
-
-let%test _ =
-  match
-    parse_string
-      ~consume:All
-      parse_expr
-      "(fun x -> fun y -> x)(fun u -> u)((fun x -> x x)(fun x -> x x))"
-  with
-  | Ok v ->
-    (match v with
-     | _ -> true)
-  | Error err -> failwith err
-;;
+type error = [ `Parsing_error of string ]
 
 let pp_error ppf = function
   | `Parsing_error s -> Format.fprintf ppf "%s" s
@@ -193,23 +119,4 @@ let parse str =
   match Angstrom.parse_string parse_expr ~consume:Angstrom.Consume.All str with
   | Result.Ok x -> Result.Ok x
   | Error er -> Result.Error (`Parsing_error er)
-;;
-
-let%test _ =
-  match parse "let rec fac = fun n -> mul n (fac (dec n)) in fac 5" with
-  | Result.Ok _ -> true
-  | _ -> false
-;;
-
-let%test _ =
-  match parse "let inc = fun n -> n + 1 in inc 5" with
-  | Result.Ok
-      (Ast.Let
-         ( "inc"
-         , Ast.Abs ("n", App (Var "+", Var "n", [ Const 1 ]))
-         , Ast.App (Var "inc", Const 5, []) )) -> true
-  | Result.Ok ast ->
-    Format.eprintf "%a" Pprintast.pp ast;
-    false
-  | Result.Error (`Parsing_error er) -> failwith er
 ;;

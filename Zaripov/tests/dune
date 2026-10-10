@@ -1,8 +1,18 @@
 (test
- (name parser_tests)
- (modules parser_tests)
+ (name parser_qtests)
+ (modules parser_qtests)
  (libraries lambda_lib qcheck)
  (preprocess
-  (pps ppx_expect ppx_deriving.show))
+  (pps ppx_deriving.show))
+ (instrumentation
+  (backend bisect_ppx_ng)))
+
+(library
+ (name expect_tests)
+ (libraries lambda_lib)
+ (modules parser_tests)
+ (preprocess
+  (pps ppx_expect ppx_inline_test))
+ (inline_tests)
  (instrumentation
   (backend bisect_ppx_ng)))

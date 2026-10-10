@@ -1,61 +1,72 @@
-open QCheck
-open QCheck.Gen
 open Lambda_lib
+open Parser
 
-(* size >= 5 to never create a keyword *)
-let gen_name = string_size_of (int_range 5 10) (char_range 'a' 'z')
-let gen_var = gen_name >|= fun s -> Ast.Var s
-let gen_const = return @@ Ast.Const 1
-let gen_simple = oneof_weighted [ 4, gen_var; 1, gen_const ]
-
-let gen_let expr size =
-  gen_name
-  >>= fun name ->
-  expr size
-  >>= fun assign_part -> expr size >|= fun in_part -> Ast.Let (name, assign_part, in_part)
+let%test _ =
+  match parse "let x = y in z" with
+  | Ok v ->
+    (match v with
+     | Ast.Let (x, Ast.Var y, Ast.Var z) when x = "x" && y = "y" && z = "z" -> true
+     | _ ->
+       Format.eprintf "%a" Pprintast.pp v;
+       false)
+  | Error (`Parsing_error e) -> failwith e
 ;;
 
-let gen_if expr size =
-  expr size
-  >>= fun cond ->
-  expr size
-  >>= fun then_expr -> expr size >|= fun else_expr -> Ast.If (cond, then_expr, else_expr)
+let%test "let rec and let" =
+  match parse "let rec x = x in let y = x in z" with
+  | Ok v ->
+    (match v with
+     | Ast.Letrec ("x", Ast.Var "x", Ast.Let ("y", Ast.Var "x", Ast.Var "z")) -> true
+     | tree ->
+       Format.eprintf "%a" Pprintast.pp tree;
+       false)
+  | Error (`Parsing_error e) -> failwith e
 ;;
 
-let gen_abs expr size =
-  gen_name >>= fun name -> expr size >|= fun body -> Ast.Abs (name, body)
+let%test _ =
+  match parse "let x = z w in y" with
+  | Ok v ->
+    (match v with
+     | Ast.Let (x, Ast.App (Ast.Var "z", Ast.Var "w", []), Ast.Var "y") when x = "x" ->
+       true
+     | _ -> false)
+  | Error (`Parsing_error err) -> failwith err
 ;;
 
-let gen_atom expr size =
-  if size < 1
-  then gen_simple
-  else (
-    let new_size = size - 1 in
-    oneof_weighted
-      [ 5, gen_let expr new_size; 2, gen_if expr new_size; 3, gen_abs expr new_size ])
+let%test "if expr" =
+  match parse "if not x then y else z" with
+  | Ok v ->
+    (match v with
+     | Ast.If (Ast.App (Ast.Var "not", Ast.Var "x", []), Ast.Var "y", Ast.Var "z") -> true
+     | _ ->
+       Format.eprintf "%a\n" Pprintast.pp v;
+       false)
+  | Error (`Parsing_error err) -> failwith err
 ;;
 
-let gen_expr =
-  fix (fun expr ->
-    fun size ->
-    list_size (int_range 2 3) (gen_atom expr size)
-    >|= function
-    | l :: r :: lst -> Ast.App (l, r, lst)
-    | _ -> failwith "Unreachable")
+let%test _ =
+  match parse "(fun x -> fun y -> x)(fun u -> u)((fun x -> x x)(fun x -> x x))" with
+  | Ok v ->
+    (match v with
+     | _ -> true)
+  | Error (`Parsing_error err) -> failwith err
 ;;
 
-let get_ast_program ast = Format.asprintf "%a" Pprintast.pp ast
-let parse_optimistically = Fun.compose Result.get_ok Parser.parse
-let ast_arb ast_gen = make ~print:get_ast_program ast_gen
-
-let test_var =
-  Test.make
-    ~count:100
-    (ast_arb (gen_expr 3))
-    (fun ast ->
-       let str = get_ast_program ast in
-       let after_ast = parse_optimistically str in
-       ast = after_ast)
+let%test _ =
+  match parse "let rec fac = fun n -> mul n (fac (dec n)) in fac 5" with
+  | Result.Ok _ -> true
+  | _ -> false
 ;;
 
-QCheck_runner.run_tests_main [ test_var ]
+let%test _ =
+  match parse "let inc = fun n -> n + 1 in inc 5" with
+  | Result.Ok
+      (Ast.Let
+         ( "inc"
+         , Ast.Abs ("n", App (Var "+", Var "n", [ Const 1 ]))
+         , Ast.App (Var "inc", Const 5, []) )) -> true
+  | Result.Ok ast ->
+    Format.eprintf "%a" Pprintast.pp ast;
+    false
+  | Result.Error (`Parsing_error er) -> failwith er
+;;
