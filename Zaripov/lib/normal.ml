@@ -1,3 +1,11 @@
+[@@@ocaml.text "/*"]
+
+(** Copyright 2021-2024, Kakadu and contributors *)
+
+(** SPDX-License-Identifier: LGPL-3.0-or-later *)
+
+[@@@ocaml.text "/*"]
+
 open Ast
 
 type lowered =
@@ -28,21 +36,14 @@ module State = struct
   let ( let* ) = bind
   let ( >> ) x y = bind x (fun _ -> y)
   let get : env t = fun env -> env, env
-  let put (new_env : env) : unit t = fun _ -> (), new_env
-  let update (f : env -> env) : unit t = fun env -> (), f env
+
+  let local (change : env -> env) (m : 'a t) : 'a t =
+    fun env ->
+    let ret, _ = Fun.compose m change env in
+    ret, env
+  ;;
+
   let run ((x, _) : 'a * env) = x
-
-  let fmap (f : 'a -> 'b) (m : 'a t) =
-    let* a = m in
-    return @@ f a
-  ;;
-
-  let apply (f : ('a -> 'b) t) (m : 'a t) =
-    let* f = f in
-    fmap f m
-  ;;
-
-  let ( <*> ) = apply
 
   let rec mapM (f : 'a -> 'b t) (lst : 'a list) =
     match lst with
@@ -62,8 +63,7 @@ let ( <|> ) x def =
 
 let addedGarbage = "#"
 let recVar var = addedGarbage ^ var
-let fixOpName = "fix"
-let ifCheckName = "#if"
+let ifCheckName = addedGarbage ^ "if"
 
 let z_combinator =
   let addedGarbage = "^" in
@@ -72,7 +72,7 @@ let z_combinator =
     | Ast.App (l, r, lst) ->
       Ast.App (mistify_vars l, mistify_vars r, List.map mistify_vars lst)
     | Ast.Var x -> Ast.Var (addedGarbage ^ x)
-    | _ -> failwith "Unreachable"
+    | _ -> Ast.Var "#Unreachable"
   in
   Parser.parse "fun f -> (fun x -> f (fun v -> x x v)) (fun x -> f (fun v -> (x x v)))"
   |> Result.get_ok
@@ -102,11 +102,7 @@ let lower ast =
     | Ast.Letrec (var, assign_part, in_part) ->
       let* in_part = helper in_part in
       let new_var = recVar var in
-      let* env = get in
-      let new_env = StringMap.add var new_var env in
-      put new_env
-      >>
-      let* assign_part = helper assign_part in
+      let* assign_part = local (StringMap.add var new_var) (helper assign_part) in
       let* fix = helper z_combinator in
       return @@ Let (var, App (fix, Abs (new_var, assign_part), []), in_part)
     | Ast.If (cond, then_part, else_part) ->
@@ -116,28 +112,4 @@ let lower ast =
       return @@ App (Var ifCheckName, cond, [ then_part; else_part ])
   in
   run @@ helper ast StringMap.empty
-;;
-
-let straight_to_lower s = Parser.parse s |> Result.get_ok |> lower
-
-let%test _ =
-  match straight_to_lower "let rec fac = fun n -> mul n (fac (dec n)) in fac 5" with
-  | Let
-      ( "fac"
-      , App
-          ( x
-          , Abs
-              ( "#fac"
-              , Abs
-                  ( "n"
-                  , App
-                      ( Var "mul"
-                      , Var "n"
-                      , [ App (Var "#fac", App (Var "dec", Var "n", []), []) ] ) ) )
-          , [] )
-      , App (Var "fac", Const 5, []) )
-    when x = lower z_combinator -> true
-  | x ->
-    Format.eprintf "%s" (show_lowered x);
-    false
 ;;

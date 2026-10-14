@@ -1,3 +1,13 @@
+[@@@ocaml.text "/*"]
+
+(** Copyright 2021-2024, Kakadu and contributors *)
+
+(** SPDX-License-Identifier: LGPL-3.0-or-later *)
+
+[@@@ocaml.text "/*"]
+
+open Builtin
+
 type instr =
   | Access of int
   | Closure of instr list
@@ -12,31 +22,20 @@ type instr =
   | If of instr list * instr list
 [@@deriving show]
 
-let predefined = function
-  | ".const" -> -1
-  | _ -> failwith "undefined"
-;;
-
-let builtinMap = function
-  | -2 -> [ Add ]
-  | _ -> failwith "Undefined"
-;;
-
-let isBuiltin n = n < 0
-let add_id = -2
-
 let rec compile =
   let compile_lst f = List.concat_map (fun x -> f x @ [ Apply ]) in
   function
-  | Debruijn.Var n -> if n >= 0 then [ Access n ] else builtinMap n
+  | Debruijn.Var n -> [ Access n ]
   | Debruijn.Abs a -> [ Closure (compile a @ [ Return ]) ]
   | Debruijn.Let (a, b) -> compile a @ [ Let ] @ compile b @ [ Endlet ]
-  | Debruijn.App (Var -1, r, lst) -> failwith "Unreachable"
-  | Debruijn.App (Var -2, r, lst) -> compile r @ List.concat_map compile lst @ [ Add ]
-  | Debruijn.App (Var -3, cond, [ then_expr; else_expr ]) ->
+  | Debruijn.App (Var n, r, lst) when n = bAdd ->
+    compile r @ List.concat_map compile lst @ [ Add ]
+  | Debruijn.App (Var n, cond, [ then_expr; else_expr ]) when n = bIf ->
     compile cond @ [ If (compile then_expr, compile else_expr) ]
-  | Debruijn.App (Var -4, r, lst) -> compile r @ List.concat_map compile lst @ [ Eq ]
-  | Debruijn.App (Var -5, r, lst) -> compile r @ List.concat_map compile lst @ [ Sub ]
+  | Debruijn.App (Var n, r, lst) when n = bEq ->
+    compile r @ List.concat_map compile lst @ [ Eq ]
+  | Debruijn.App (Var n, r, lst) when n = bSub ->
+    compile r @ List.concat_map compile lst @ [ Sub ]
   | Debruijn.App (l, r, lst) ->
     let args = r :: lst in
     compile l @ compile_lst compile args
@@ -72,78 +71,24 @@ let rec eval1 (ins, env, stack) =
       ([%show: instr list] ins)
       ([%show: stack_item list] env)
       ([%show: stack_item list] stack);
-    failwith "Unreachable by design"
+    Error "Unreachable by design"
 
 and eval code env stack =
   match code with
-  | [] -> [], env, stack
+  | [] -> Ok ([], env, stack)
   | _ ->
-    let code, env, stack = eval1 (code, env, stack) in
-    eval code env stack
+    Result.bind (eval1 (code, env, stack)) (fun (code, env, stack) -> eval code env stack)
 ;;
 
-let eval_result code =
+let eval code =
   match eval code [] [] with
-  | _, _, Atom v :: _ -> v
-  | ins, env, stack ->
+  | Ok (_, _, Atom v :: _) -> Ok v
+  | Ok (ins, env, stack) ->
     Format.eprintf
       "%s\n%s\n%s\n"
       ([%show: instr list] ins)
       ([%show: stack_item list] env)
       ([%show: stack_item list] stack);
-    failwith "Nothing on the stack"
-;;
-
-let straight_to_instrs s =
-  let instrs =
-    Parser.parse s |> Result.get_ok |> Normal.lower |> Debruijn.to_debruijn |> compile
-  in
-  instrs
-;;
-
-let straight_to_eval = Fun.compose eval_result straight_to_instrs
-
-let%test _ =
-  match straight_to_eval "let x = 5 in x" with
-  | Const 5 -> true
-  | _ -> false
-;;
-
-let%test _ =
-  match straight_to_eval "let id = fun x -> x in id 5" with
-  | Const 5 -> true
-  | _ -> false
-;;
-
-let%test _ =
-  match straight_to_eval "let inc = fun n -> n + 1 in inc 4" with
-  | Const 5 -> true
-  | _ -> false
-;;
-
-let%test _ =
-  match straight_to_eval "let c = fun n -> if n then 5 else 10 in c (0 + 1)" with
-  | Const 5 -> true
-  | _ -> false
-;;
-
-let%test _ =
-  match
-    straight_to_eval
-      "let rec sum = fun n -> if n = 0 then 0 else (sum (n - 1)) + n in sum 5"
-  with
-  | Const 15 -> true
-  | _ -> false
-;;
-
-let%test _ =
-  let txt =
-    "let rec fib = fun n -> if n = 0 then 0 else if n = 1 then 1 else (fib (n - 1)) + \
-     (fib (n - 2)) in fib 10"
-  in
-  match straight_to_eval txt with
-  | Const 55 -> true
-  | x ->
-    Format.eprintf "%s" (show_instr x);
-    false
+    Error "Nothing on the stack"
+  | Error msg -> Error msg
 ;;

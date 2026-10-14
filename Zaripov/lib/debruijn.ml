@@ -1,4 +1,12 @@
-open Stdune.Monad
+[@@@ocaml.text "/*"]
+
+(** Copyright 2021-2024, Kakadu and contributors *)
+
+(** SPDX-License-Identifier: LGPL-3.0-or-later *)
+
+[@@@ocaml.text "/*"]
+
+open Builtin
 
 type de_bruijn =
   | Const of int
@@ -11,16 +19,15 @@ type de_bruijn =
 module StringMap = Map.Make (String)
 
 type env = int StringMap.t
+type error = string
 
 module Basis = struct
-  type 'a t = env -> 'a * env
+  type 'a t = env -> ('a * env, error) result
 
-  let return (x : 'a) : 'a t = fun env -> x, env
+  let return (x : 'a) : 'a t = fun env -> Ok (x, env)
 
   let bind (m : 'a t) ~(f : 'a -> 'b t) : 'b t =
-    fun env ->
-    let v, env' = m env in
-    f v env'
+    fun env -> Result.bind (m env) (fun (x, env') -> (f x) env')
   ;;
 end
 
@@ -29,9 +36,14 @@ module State = struct
 
   include Stdune.Monad.Make (Basis)
 
-  let run ((x, _) : 'a * env) : 'a = x
-  let get : env t = fun env -> env, env
-  let put (new_env : env) = fun _ -> (), new_env
+  let run = Result.map (fun (x, _) -> x)
+  let get : env t = fun env -> Result.Ok (env, env)
+
+  let local (change : env -> env) (m : 'a t) : 'a t =
+    fun env -> Result.map (fun (ret, _) -> ret, env) (m (change env))
+  ;;
+
+  let fail (msg : string) = fun _ -> Error msg
 
   let rec mapM (f : 'a -> 'b t) (lst : 'a list) =
     let open O in
@@ -45,11 +57,10 @@ module State = struct
 end
 
 let builtinMap = function
-  | "fix" -> Some (-1)
-  | "+" -> Some (-2)
-  | "#if" -> Some (-3)
-  | "=" -> Some (-4)
-  | "-" -> Some (-5)
+  | "#if" -> Some bIf
+  | "=" -> Some bEq
+  | "+" -> Some bAdd
+  | "-" -> Some bSub
   | _ -> None
 ;;
 
@@ -61,59 +72,26 @@ let defaultWith f = function
 let to_debruijn ast =
   let open State in
   let open O in
+  let promote x = Fun.compose (StringMap.add x 0) (StringMap.map (fun x -> x + 1)) in
   let rec helper = function
     | Normal.Const x -> return @@ Const x
     | Normal.Abs (x, t) ->
-      let* old_map = get in
-      get
-      >>| StringMap.map (fun x -> x + 1)
-      >>| StringMap.add x 0
-      >>= put
-      >>>
-      let* t = helper t in
-      put old_map >>> return @@ Abs t
+      let* t = local (promote x) (helper t) in
+      return @@ Abs t
     | Normal.App (l, r, xs) ->
-      let* env = get in
-      let* l = helper l in
-      put env
-      >>>
-      let* r = helper r in
-      put env
-      >>>
-      let* xs = mapM (fun x -> put env >>> helper x) xs in
-      put env >>> return @@ App (l, r, xs)
+      let* l = local Fun.id (helper l) in
+      let* r = local Fun.id (helper r) in
+      let* xs = mapM (fun x -> local Fun.id (helper x)) xs in
+      return @@ App (l, r, xs)
     | Normal.Var x ->
       let* map = get in
       (match defaultWith (fun () -> StringMap.find_opt x map) (builtinMap x) with
        | Some x -> return @@ Var x
-       | _ -> failwith "Undeclared name used")
+       | _ -> fail "Undeclared name used")
     | Normal.Let (var, assign_part, in_part) ->
-      let* old_map = get in
-      let* assign_part = helper assign_part in
-      put old_map
-      >>> get
-      >>| StringMap.map (fun x -> x + 1)
-      >>| StringMap.add var 0
-      >>= put
-      >>>
-      let* in_part = helper in_part in
-      put old_map >>> return @@ Let (assign_part, in_part)
+      let* assign_part = local Fun.id (helper assign_part) in
+      let* in_part = local (promote var) (helper in_part) in
+      return @@ Let (assign_part, in_part)
   in
   run @@ helper ast StringMap.empty
-;;
-
-let straight_to_debruijn s =
-  Parser.parse s |> Stdlib.Result.get_ok |> Normal.lower |> to_debruijn
-;;
-
-let%test _ =
-  match straight_to_debruijn "fun x -> fun y -> x y" with
-  | Abs (Abs (App (Var 1, Var 0, []))) -> true
-  | _ -> false
-;;
-
-let%test _ =
-  match straight_to_debruijn "let id = fun x -> x in id 5" with
-  | Let (Abs (Var 0), App (Var 0, Const 5, [])) -> true
-  | _ -> false
 ;;

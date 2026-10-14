@@ -10,7 +10,7 @@
 (library
  (name expect_tests)
  (libraries lambda_lib)
- (modules parser_tests)
+ (modules parser_tests normal_tests debruijn_tests eval_tests)
  (preprocess
   (pps ppx_expect ppx_inline_test))
  (inline_tests)

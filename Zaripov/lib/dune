@@ -1,7 +1,7 @@
 (library
  (name lambda_lib)
  (public_name Zaripov.Lib)
- (modules Ast Parser Pprintast Normal Debruijn Secd)
+ (modules Ast Parser Pprintast Normal Builtin Debruijn Secd)
  (modules_without_implementation ast)
  (libraries base angstrom stdune)
  (preprocess

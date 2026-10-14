@@ -12,11 +12,11 @@ type name = string
 type 'name t =
   | Var of 'name (** Variable [x] *)
   | Abs of 'name * 'name t (** Abstraction [λx.t] *)
-  | App of 'name t * 'name t * 'name t list
-  | Let of 'name * 'name t * 'name t
-  | Letrec of 'name * 'name t * 'name t
-  | Const of int
-  | If of 'name t * 'name t * 'name t
+  | App of 'name t * 'name t * 'name t list (** Application *)
+  | Let of 'name * 'name t * 'name t (** Let expression *)
+  | Letrec of 'name * 'name t * 'name t (** Let rec expression *)
+  | Const of int (** Number literal *)
+  | If of 'name t * 'name t * 'name t (** If expression *)
 
 (** In type definition above the 3rd constructor is intentionally without documentation
     to test linter *)
