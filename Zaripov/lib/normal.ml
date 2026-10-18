@@ -6,8 +6,6 @@
 
 [@@@ocaml.text "/*"]
 
-open Ast
-
 type lowered =
   | Var of string
   | Abs of string * lowered

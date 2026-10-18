@@ -6,6 +6,4 @@
 
 [@@@ocaml.text "/*"]
 
-open Lambda_lib
-
 let () = Format.eprintf "Hello, world!"

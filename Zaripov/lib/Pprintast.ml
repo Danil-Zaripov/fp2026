@@ -15,8 +15,9 @@ let pp =
     | Var s -> Format.fprintf fmt "%s" s
     | Const n -> Format.fprintf fmt "%d" n
     | App (l, r, xs) ->
-      Format.fprintf fmt "%a" pp l;
-      r :: xs |> List.iter (fun expr -> Format.fprintf fmt " %a" pp expr)
+      Format.fprintf fmt "(%a" pp l;
+      r :: xs |> List.iter (fun expr -> Format.fprintf fmt " %a" pp expr);
+      Format.fprintf fmt ")"
     | Abs (x, t) -> Format.fprintf fmt "(fun %s -> %a)" x pp t
     | Let (var, assign_part, in_part) ->
       Format.fprintf fmt "(let %s = %a in %a)" var pp assign_part pp in_part

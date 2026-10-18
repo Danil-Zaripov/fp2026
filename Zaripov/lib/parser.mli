@@ -8,7 +8,5 @@
 
 type error = [ `Parsing_error of string ]
 
-val pp_error : Format.formatter -> [< `Parsing_error of string ] -> unit
-
 (** Main entry of parser *)
 val parse : string -> (Ast.name Ast.t, [> error ]) result

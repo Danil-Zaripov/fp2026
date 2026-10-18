@@ -61,6 +61,15 @@ let builtinMap = function
   | "=" -> Some bEq
   | "+" -> Some bAdd
   | "-" -> Some bSub
+  | "&&" -> Some bAnd
+  | "||" -> Some bOr
+  | "*" -> Some bMul
+  | "/" -> Some bDiv
+  | "<" -> Some bLe
+  | ">" -> Some bGe
+  | "<=" -> Some bLeq
+  | ">=" -> Some bGeq
+  | "<>" -> Some bIneq
   | _ -> None
 ;;
 

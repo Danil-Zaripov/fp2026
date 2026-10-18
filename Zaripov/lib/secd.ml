@@ -18,9 +18,36 @@ type instr =
   | Const of int
   | Add
   | Sub
+  | Mul
+  | Div
   | Eq
+  | Ge
+  | Le
+  | Geq
+  | Leq
+  | Ineq
+  | Or
+  | And
   | If of instr list * instr list
 [@@deriving show]
+
+let isBuiltin n = n < 0
+
+let getBuiltinInstr = function
+  | n when n = bAdd -> Some Add
+  | n when n = bSub -> Some Sub
+  | n when n = bMul -> Some Mul
+  | n when n = bDiv -> Some Div
+  | n when n = bLe -> Some Le
+  | n when n = bGe -> Some Ge
+  | n when n = bLeq -> Some Leq
+  | n when n = bGeq -> Some Geq
+  | n when n = bOr -> Some Or
+  | n when n = bAnd -> Some And
+  | n when n = bIneq -> Some Ineq
+  | n when n = bEq -> Some Eq
+  | _ -> None
+;;
 
 let rec compile =
   let compile_lst f = List.concat_map (fun x -> f x @ [ Apply ]) in
@@ -28,14 +55,10 @@ let rec compile =
   | Debruijn.Var n -> [ Access n ]
   | Debruijn.Abs a -> [ Closure (compile a @ [ Return ]) ]
   | Debruijn.Let (a, b) -> compile a @ [ Let ] @ compile b @ [ Endlet ]
-  | Debruijn.App (Var n, r, lst) when n = bAdd ->
-    compile r @ List.concat_map compile lst @ [ Add ]
   | Debruijn.App (Var n, cond, [ then_expr; else_expr ]) when n = bIf ->
     compile cond @ [ If (compile then_expr, compile else_expr) ]
-  | Debruijn.App (Var n, r, lst) when n = bEq ->
-    compile r @ List.concat_map compile lst @ [ Eq ]
-  | Debruijn.App (Var n, r, lst) when n = bSub ->
-    compile r @ List.concat_map compile lst @ [ Sub ]
+  | Debruijn.App (Var n, r, lst) when isBuiltin n ->
+    compile r @ List.concat_map compile lst @ [ getBuiltinInstr n |> Option.get ]
   | Debruijn.App (l, r, lst) ->
     let args = r :: lst in
     compile l @ compile_lst compile args
@@ -58,20 +81,32 @@ let rec eval1 (ins, env, stack) =
   | Return :: _, _, v :: Mem (c_0, e_0) :: stack -> eval c_0 e_0 (v :: stack)
   | Const n :: ins, env, stack -> eval ins env (Atom (Const n) :: stack)
   | Add :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
-    eval ins env (Atom (Const (x + y)) :: stack)
+    eval ins env (Atom (Const (y + x)) :: stack)
   | Sub :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
     eval ins env (Atom (Const (y - x)) :: stack)
+  | Mul :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (y * x)) :: stack)
+  | Div :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (y / x)) :: stack)
+  | Le :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y < x then 1 else 0)) :: stack)
+  | Ge :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y > x then 1 else 0)) :: stack)
+  | Leq :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y <= x then 1 else 0)) :: stack)
+  | Geq :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y >= x then 1 else 0)) :: stack)
+  | Ineq :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y <> x then 1 else 0)) :: stack)
   | Eq :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
     eval ins env (Atom (Const (if x = y then 1 else 0)) :: stack)
+  | Or :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y <> 0 || x <> 0 then 1 else 0)) :: stack)
+  | And :: ins, env, Atom (Const x) :: Atom (Const y) :: stack ->
+    eval ins env (Atom (Const (if y <> 0 && x <> 0 then 1 else 0)) :: stack)
   | If (then_expr, else_expr) :: ins, env, Atom (Const x) :: stack ->
     eval ((if x <> 0 then then_expr else else_expr) @ ins) env stack
-  | _ ->
-    Format.eprintf
-      "%s\n%s\n%s\n"
-      ([%show: instr list] ins)
-      ([%show: stack_item list] env)
-      ([%show: stack_item list] stack);
-    Error "Unreachable by design"
+  | _ -> Error "Unreachable by design"
 
 and eval code env stack =
   match code with
@@ -83,12 +118,6 @@ and eval code env stack =
 let eval code =
   match eval code [] [] with
   | Ok (_, _, Atom v :: _) -> Ok v
-  | Ok (ins, env, stack) ->
-    Format.eprintf
-      "%s\n%s\n%s\n"
-      ([%show: instr list] ins)
-      ([%show: stack_item list] env)
-      ([%show: stack_item list] stack);
-    Error "Nothing on the stack"
+  | Ok _ -> Error "No atom on the stack"
   | Error msg -> Error msg
 ;;

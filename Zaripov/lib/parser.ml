@@ -8,12 +8,13 @@
 
 open Angstrom
 
-let is_space = function
-  | ' ' | '\t' | '\n' | '\r' -> true
-  | _ -> false
+let is_space = Char.Ascii.is_white
+
+let digits =
+  let digits = take_while1 Char.Ascii.is_digit in
+  digits <|> lift2 ( ^ ) (char '-' >>| String.of_char) digits
 ;;
 
-let number = take_while1 Char.Ascii.is_digit
 let spaces = skip_while is_space
 let varname = take_while1 Char.Ascii.is_letter
 
@@ -39,7 +40,7 @@ let parse_var =
   else fail "Keyword used as ident"
 ;;
 
-let parse_const = number >>= fun x -> return @@ Ast.Const (int_of_string x)
+let parse_const = digits >>= fun x -> return @@ Ast.Const (int_of_string x)
 
 let parse_let_nonrec expr =
   string "let" *> spaces *> varname
@@ -58,15 +59,6 @@ let parse_letrec expr =
 ;;
 
 let parse_let expr = parse_let_nonrec expr <|> parse_letrec expr
-
-let parse_bin s atom =
-  let* l = atom <* spaces in
-  string s
-  *> spaces
-  *>
-  let* r = atom in
-  return @@ Ast.App (Var s, l, [ r ])
-;;
 
 let parse_fun expr =
   string "fun" *> spaces *> varname
@@ -104,24 +96,37 @@ let parse_atom expr =
     ]
 ;;
 
-let parse_expr =
-  fix (fun expr ->
-    let atom = parse_atom expr in
-    conde
-      [ parse_app atom; parse_bin "+" atom; parse_bin "=" atom; parse_bin "-" atom; atom ])
+let operator op =
+  spaces *> string op *> spaces *> (return @@ fun l r -> Ast.App (Ast.Var op, l, [ r ]))
 ;;
+
+let add = operator "+"
+let sub = operator "-"
+let mul = operator "*"
+let div = operator "/"
+let le = operator "<"
+let ge = operator ">"
+let leq = operator "<="
+let geq = operator ">="
+let eq = operator "="
+let neq = operator "<>"
+let or_op = operator "||"
+let and_op = operator "&&"
+
+let binop expr =
+  let atom = parse_atom expr in
+  let factor = parse_app atom <|> atom in
+  let term = chainl1 factor (mul <|> div) in
+  let ineq = chainl1 term (add <|> sub) in
+  let equality = chainl1 ineq (leq <|> geq <|> le <|> ge) in
+  let ands = chainl1 equality (eq <|> neq) in
+  let ors = chainl1 ands and_op in
+  chainl1 ors or_op
+;;
+
+let parse_expr = fix binop
 
 type error = [ `Parsing_error of string ]
-
-let pp_error ppf = function
-  | `Parsing_error s -> Format.fprintf ppf "%s" s
-;;
-
-let varchar =
-  satisfy (function
-    | 'a' .. 'z' -> true
-    | _ -> false)
-;;
 
 let parse str =
   match Angstrom.parse_string parse_expr ~consume:Angstrom.Consume.All str with

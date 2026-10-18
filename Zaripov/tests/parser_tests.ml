@@ -59,3 +59,50 @@ let%test _ =
     false
   | Result.Error _ -> false
 ;;
+
+let%test "operator precedence" =
+  (* (- (+ x ('*' x y)) (/ x y)) *)
+  match parse "let f = fun x -> fun y -> x + x * y - x / y in f 3 4" with
+  | Result.Ok
+      (Ast.Let
+         ( "f"
+         , Ast.Abs
+             ( "x"
+             , Ast.Abs
+                 ( "y"
+                 , Ast.App
+                     ( Ast.Var "-"
+                     , Ast.App
+                         ( Ast.Var "+"
+                         , Ast.Var "x"
+                         , [ Ast.App (Ast.Var "*", Ast.Var "x", [ Ast.Var "y" ]) ] )
+                     , [ Ast.App (Ast.Var "/", Ast.Var "x", [ Ast.Var "y" ]) ] ) ) )
+         , Ast.App (Ast.Var "f", Ast.Const 3, [ Ast.Const 4 ]) )) -> true
+  | _ -> false
+;;
+
+let%test "parens" =
+  match parse "1 + (n - 1) * (n + 1)" with
+  | Result.Ok
+      (Ast.App
+         ( Ast.Var "+"
+         , Ast.Const 1
+         , [ Ast.App
+               ( Ast.Var "*"
+               , Ast.App (Ast.Var "-", Ast.Var "n", [ Ast.Const 1 ])
+               , [ Ast.App (Ast.Var "+", Ast.Var "n", [ Ast.Const 1 ]) ] )
+           ] )) -> true
+  | _ -> false
+;;
+
+let%test "fib" =
+  match parse "fib (n - 1) + fib (n - 2)" with
+  | Result.Ok
+      (Ast.App
+         ( Ast.Var "+"
+         , Ast.App (Ast.Var "fib", Ast.App (Ast.Var "-", Ast.Var "n", [ Ast.Const 1 ]), [])
+         , [ Ast.App
+               (Ast.Var "fib", Ast.App (Ast.Var "-", Ast.Var "n", [ Ast.Const 2 ]), [])
+           ] )) -> true
+  | _ -> false
+;;

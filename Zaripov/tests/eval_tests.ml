@@ -58,12 +58,25 @@ let%test _ =
 
 let%test _ =
   let txt =
-    "let rec fib = fun n -> if n = 0 then 0 else if n = 1 then 1 else (fib (n - 1)) + \
-     (fib (n - 2)) in fib 10"
+    "let rec fib = fun n -> if n = 0 then 0 else if n = 1 then 1 else fib (n - 1) + fib \
+     (n - 2) in fib 10"
   in
   match straight_to_eval txt with
   | Const 55 -> true
   | x ->
     Format.eprintf "%s" (show_instr x);
     false
+;;
+
+let%test "fact" =
+  match
+    straight_to_instrs
+      "let rec fac = fun n -> if n <= 1 then 1 else n * fac (n - 1) in fac 5"
+    |> eval
+  with
+  | Result.Ok (Const 120) -> true
+  | Result.Error msg ->
+    Format.eprintf "%s" msg;
+    false
+  | _ -> false
 ;;
