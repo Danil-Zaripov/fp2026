@@ -8,8 +8,15 @@
 
 type name = string
 
+type 'name pattern =
+  | Constr of 'name * 'name pattern list
+  | ValueName of 'name
+  | Any
+
+and 'name match_branch = 'name pattern * 'name t
+
 (** The main type for our AST (дерева абстрактного синтаксиса) *)
-type 'name t =
+and 'name t =
   | Var of 'name (** Variable [x] *)
   | Abs of 'name * 'name t (** Abstraction [λx.t] *)
   | App of 'name t * 'name t * 'name t list (** Application *)
@@ -17,6 +24,9 @@ type 'name t =
   | Letrec of 'name * 'name t * 'name t (** Let rec expression *)
   | Const of int (** Number literal *)
   | If of 'name t * 'name t * 'name t (** If expression *)
+  | Typedecl of 'name * ('name * int) list * 'name t
+  (** Type declaration: type .. = | .. of arity in ..*)
+  | Match of 'name t * 'name match_branch list
 
 (** In type definition above the 3rd constructor is intentionally without documentation
     to test linter *)

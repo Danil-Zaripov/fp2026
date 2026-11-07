@@ -16,7 +16,9 @@ let digits =
 ;;
 
 let spaces = skip_while is_space
+let spaces_mandatory = skip_many1 (satisfy is_space)
 let varname = take_while1 Char.Ascii.is_letter
+let consname = varname
 
 let conde = function
   | [] -> fail "empty conde"
@@ -30,7 +32,10 @@ let chainl1 e op =
 
 module StringSet = Set.Make (String)
 
-let keywords = [ "fun"; "in"; "let"; "if"; "then"; "else"; "rec" ] |> StringSet.of_list
+let keywords =
+  [ "fun"; "in"; "let"; "if"; "then"; "else"; "rec"; "match"; "with"; "type"; "of" ]
+  |> StringSet.of_list
+;;
 
 let parse_var =
   varname
@@ -59,6 +64,77 @@ let parse_letrec expr =
 ;;
 
 let parse_let expr = parse_let_nonrec expr <|> parse_letrec expr
+
+let parse_cons_decl_single =
+  let* cons_name = consname in
+  let* arity =
+    spaces_mandatory *> string "of" *> spaces_mandatory *> take_while1 Char.Ascii.is_digit
+    >>| int_of_string
+  in
+  return [ cons_name, arity ]
+;;
+
+let parse_cons_decl =
+  chainl1
+    parse_cons_decl_single
+    (spaces *> string "|" *> spaces *> return (fun l r -> l @ r))
+;;
+
+let parse_type expr =
+  let* typename =
+    string "type" *> spaces_mandatory *> varname <* spaces <* string "=" <* spaces
+  in
+  let* cons_lst = parse_cons_decl in
+  let* following_expr = spaces *> string "in" *> spaces_mandatory *> expr in
+  return @@ Ast.Typedecl (typename, cons_lst, following_expr)
+;;
+
+let parse_pattern =
+  fix (fun pattern ->
+    let constr =
+      let* name = consname in
+      let* lst =
+        spaces
+        *> string "("
+        *> spaces
+        *> chainl1
+             (pattern >>| List.singleton)
+             (spaces *> string "," *> spaces *> return (fun l r -> l @ r))
+      in
+      return @@ Ast.Constr (name, lst)
+    in
+    let valname =
+      let* name = varname in
+      return @@ Ast.ValueName name
+    in
+    let wildcard = string "_" *> return Ast.Any in
+    constr <|> valname <|> wildcard)
+;;
+
+let parse_match_branch_single expr =
+  let* pattern = parse_pattern in
+  let* following_expr = spaces *> string "->" *> spaces *> expr in
+  return (pattern, following_expr)
+;;
+
+let parse_match_branches expr =
+  string "|"
+  *> spaces
+  *> chainl1
+       (parse_match_branch_single expr >>| List.singleton)
+       (spaces *> string "|" *> spaces *> return (fun l r -> l @ r))
+;;
+
+let parse_match expr =
+  let* match_expr =
+    spaces *> string "match" *> spaces_mandatory *> expr
+    <* spaces_mandatory
+    <* string "with"
+    <* spaces_mandatory
+  in
+  let* match_branches = parse_match_branches expr in
+  return @@ Ast.Match (match_expr, match_branches)
+;;
 
 let parse_fun expr =
   string "fun" *> spaces *> varname
@@ -93,6 +169,7 @@ let parse_atom expr =
     ; parse_fun expr
     ; parse_if expr
     ; parse_paren_expr expr
+    ; parse_type expr
     ]
 ;;
 

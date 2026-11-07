@@ -106,3 +106,9 @@ let%test "fib" =
            ] )) -> true
   | _ -> false
 ;;
+
+let%test "typedecl" =
+  match parse "type lst = Cons of 2 | Nil of 0 in 0" with
+  | Result.Ok (Ast.Typedecl ("lst", [ ("Cons", 2); ("Nil", 0) ], _)) -> true
+  | _ -> false
+;;
