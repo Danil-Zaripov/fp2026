@@ -118,8 +118,18 @@ let%test "match" =
   | Result.Ok
       (Ast.Match
          ( Ast.Var "x"
-         , [ (Ast.Constr ("Some", [ Ast.ValueName "x" ]), Ast.Const 1)
-           ; (Ast.Constr ("None", []), Ast.Const 0)
+         , [ (Ast.PConstr ("Some", [ Ast.PValueName "x" ]), Ast.Const 1)
+           ; (Ast.PConstr ("None", []), Ast.Const 0)
            ] )) -> true
+  | _ -> false
+;;
+
+let%test "constr" =
+  match parse "type list = Cons of 2 | Nil of 0 in Cons(1, Nil())" with
+  | Result.Ok
+      (Ast.Typedecl
+         ( "list"
+         , [ ("Cons", 2); ("Nil", 0) ]
+         , Ast.Constr ("Cons", [ Ast.Const 1; Ast.Constr ("Nil", []) ]) )) -> true
   | _ -> false
 ;;

@@ -9,9 +9,9 @@
 type name = string
 
 type 'name pattern =
-  | Constr of 'name * 'name pattern list
-  | ValueName of 'name
-  | Any
+  | PConstr of 'name * 'name pattern list
+  | PValueName of 'name
+  | PAny
 
 and 'name match_branch = 'name pattern * 'name t
 
@@ -27,6 +27,7 @@ and 'name t =
   | Typedecl of 'name * ('name * int) list * 'name t
   (** Type declaration: type .. = | .. of arity in ..*)
   | Match of 'name t * 'name match_branch list
+  | Constr of 'name * 'name t list
 
 (** In type definition above the 3rd constructor is intentionally without documentation
     to test linter *)

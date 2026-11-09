@@ -11,9 +11,9 @@
 open Ast
 
 let rec pp_pattern fmt = function
-  | Any -> Format.fprintf fmt "_"
-  | ValueName name -> Format.fprintf fmt "%s" name
-  | Constr (name, pat_list) ->
+  | PAny -> Format.fprintf fmt "_"
+  | PValueName name -> Format.fprintf fmt "%s" name
+  | PConstr (name, pat_list) ->
     Format.fprintf fmt "%s(" name;
     let rec helper = function
       | x :: x' :: xs ->
@@ -41,6 +41,17 @@ let pp =
       Format.fprintf fmt "(let rec %s = %a in %a)" var pp assign_part pp in_part
     | If (cond, then_expr, else_expr) ->
       Format.fprintf fmt "(if %a then %a else %a)" pp cond pp then_expr pp else_expr
+    | Constr (name, expr_lst) ->
+      Format.fprintf fmt "(%s(" name;
+      let rec helper = function
+        | x :: x' :: xs ->
+          Format.fprintf fmt "%a, " pp x;
+          helper @@ (x' :: xs)
+        | x :: [] -> Format.fprintf fmt "%a" pp x
+        | [] -> ()
+      in
+      helper expr_lst;
+      Format.fprintf fmt "))"
     | Match (mexpr, branches) ->
       Format.fprintf fmt "(match %a with " pp mexpr;
       branches

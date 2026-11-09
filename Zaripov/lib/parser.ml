@@ -110,18 +110,18 @@ let parse_pattern =
         <* spaces
         <* string ")"
       in
-      return @@ Ast.Constr (name, lst)
+      return @@ Ast.PConstr (name, lst)
     in
     let constr_empty =
       let* name = consname in
       let* _ = spaces *> string "(" *> spaces *> string ")" *> spaces <|> spaces in
-      return @@ Ast.Constr (name, [])
+      return @@ Ast.PConstr (name, [])
     in
     let valname =
       let* name = varname in
-      return @@ Ast.ValueName name
+      return @@ Ast.PValueName name
     in
-    let wildcard = string "_" *> return Ast.Any in
+    let wildcard = string "_" *> return Ast.PAny in
     constr <|> constr_empty <|> valname <|> wildcard)
 ;;
 
@@ -148,6 +148,26 @@ let parse_match expr =
   in
   let* match_branches = parse_match_branches expr in
   return @@ Ast.Match (match_expr, match_branches)
+;;
+
+let parse_constr expr =
+  let* name = consname in
+  let empty_constr =
+    spaces *> string "(" *> spaces *> string ")" *> spaces
+    <|> spaces
+    >>= fun () -> return @@ Ast.Constr (name, [])
+  in
+  (let* expr_lst =
+     spaces
+     *> string "("
+     *> chainl1
+          (expr >>| List.singleton)
+          (spaces *> string "," *> spaces *> return (fun l r -> l @ r))
+     <* spaces
+     <* string ")"
+   in
+   return @@ Ast.Constr (name, expr_lst))
+  <|> empty_constr
 ;;
 
 let parse_fun expr =
@@ -183,6 +203,7 @@ let parse_atom expr =
     ; parse_fun expr
     ; parse_if expr
     ; parse_paren_expr expr
+    ; parse_constr expr
     ; parse_type expr
     ; parse_match expr
     ]
