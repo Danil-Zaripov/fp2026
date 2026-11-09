@@ -10,6 +10,22 @@
 
 open Ast
 
+let rec pp_pattern fmt = function
+  | Any -> Format.fprintf fmt "_"
+  | ValueName name -> Format.fprintf fmt "%s" name
+  | Constr (name, pat_list) ->
+    Format.fprintf fmt "%s(" name;
+    let rec helper = function
+      | x :: x' :: xs ->
+        Format.fprintf fmt "%a, " pp_pattern x;
+        helper @@ (x' :: xs)
+      | x :: [] -> Format.fprintf fmt "%a" pp_pattern x
+      | _ -> ()
+    in
+    helper pat_list;
+    Format.fprintf fmt ")"
+;;
+
 let pp =
   let rec pp fmt = function
     | Var s -> Format.fprintf fmt "%s" s
@@ -25,6 +41,23 @@ let pp =
       Format.fprintf fmt "(let rec %s = %a in %a)" var pp assign_part pp in_part
     | If (cond, then_expr, else_expr) ->
       Format.fprintf fmt "(if %a then %a else %a)" pp cond pp then_expr pp else_expr
+    | Match (mexpr, branches) ->
+      Format.fprintf fmt "(match %a with " pp mexpr;
+      branches
+      |> List.iter (fun (pat, bexpr) ->
+        Format.fprintf fmt "| %a -> %a" pp_pattern pat pp bexpr);
+      Format.fprintf fmt ")"
+    | Typedecl (name, decl_lst, following_expr) ->
+      Format.fprintf fmt "type %s = " name;
+      let rec helper = function
+        | (constr_name, arity) :: x' :: xs ->
+          Format.fprintf fmt "%s of %d | " constr_name arity;
+          helper @@ (x' :: xs)
+        | (constr_name, arity) :: [] -> Format.fprintf fmt "%s of %d" constr_name arity
+        | [] -> ()
+      in
+      helper decl_lst;
+      Format.fprintf fmt " %a" pp following_expr
   in
   pp
 ;;

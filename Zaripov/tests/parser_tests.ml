@@ -112,3 +112,14 @@ let%test "typedecl" =
   | Result.Ok (Ast.Typedecl ("lst", [ ("Cons", 2); ("Nil", 0) ], _)) -> true
   | _ -> false
 ;;
+
+let%test "match" =
+  match parse "match x with | Some(x) -> 1 | None -> 0" with
+  | Result.Ok
+      (Ast.Match
+         ( Ast.Var "x"
+         , [ (Ast.Constr ("Some", [ Ast.ValueName "x" ]), Ast.Const 1)
+           ; (Ast.Constr ("None", []), Ast.Const 0)
+           ] )) -> true
+  | _ -> false
+;;

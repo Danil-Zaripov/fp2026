@@ -9,16 +9,23 @@
 open Angstrom
 
 let is_space = Char.Ascii.is_white
+let ( @>@ ) c x = String.of_char c ^ x
 
 let digits =
   let digits = take_while1 Char.Ascii.is_digit in
-  digits <|> lift2 ( ^ ) (char '-' >>| String.of_char) digits
+  digits <|> lift2 ( @>@ ) (char '-') digits
 ;;
 
 let spaces = skip_while is_space
 let spaces_mandatory = skip_many1 (satisfy is_space)
-let varname = take_while1 Char.Ascii.is_letter
-let consname = varname
+
+let varname =
+  lift2 ( @>@ ) (satisfy Char.Ascii.is_lower) (take_while Char.Ascii.is_letter)
+;;
+
+let consname =
+  lift2 ( @>@ ) (satisfy Char.Ascii.is_upper) (take_while Char.Ascii.is_letter)
+;;
 
 let conde = function
   | [] -> fail "empty conde"
@@ -100,15 +107,22 @@ let parse_pattern =
         *> chainl1
              (pattern >>| List.singleton)
              (spaces *> string "," *> spaces *> return (fun l r -> l @ r))
+        <* spaces
+        <* string ")"
       in
       return @@ Ast.Constr (name, lst)
+    in
+    let constr_empty =
+      let* name = consname in
+      let* _ = spaces *> string "(" *> spaces *> string ")" *> spaces <|> spaces in
+      return @@ Ast.Constr (name, [])
     in
     let valname =
       let* name = varname in
       return @@ Ast.ValueName name
     in
     let wildcard = string "_" *> return Ast.Any in
-    constr <|> valname <|> wildcard)
+    constr <|> constr_empty <|> valname <|> wildcard)
 ;;
 
 let parse_match_branch_single expr =
@@ -170,6 +184,7 @@ let parse_atom expr =
     ; parse_if expr
     ; parse_paren_expr expr
     ; parse_type expr
+    ; parse_match expr
     ]
 ;;
 
