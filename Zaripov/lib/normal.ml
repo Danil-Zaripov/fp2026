@@ -19,6 +19,7 @@ module StringMap = Map.Make (String)
 type env =
   { recs : string StringMap.t
   ; constrs : (int * int) StringMap.t (** (id, arity) map *)
+  ; fresh_name_cnt : int
   }
 
 let with_modified_recs f env = { env with recs = f env.recs }
@@ -43,6 +44,12 @@ module State = struct
   let get : env t = fun env -> env, env
   let put new_env : unit t = fun _ -> (), new_env
   let change f : unit t = fun env -> (), f env
+
+  let fresh_name =
+    fun env ->
+    ( Format.sprintf "$%d" env.fresh_name_cnt
+    , { env with fresh_name_cnt = env.fresh_name_cnt + 1 } )
+  ;;
 
   let local (change : env -> env) (m : 'a t) : 'a t =
     fun env ->
@@ -89,7 +96,17 @@ let z_combinator =
 
 let lower ast =
   let open State in
-  let rec multi_arg_function_decl param_list_reversed expr =
+  let check_constr_id id value = App (Var "#check_constr_id", value, [ Const id ]) in
+  let get_field value index = App (Var "#get_field", value, [ Const index ]) in
+  let if_lowered cond then_expr else_expr =
+    App (Var ifCheckName, cond, [ then_expr; else_expr ])
+  in
+  let rec lower_if cond then_expr else_expr =
+    let* cond = helper cond in
+    let* then_expr = helper then_expr in
+    let* else_expr = helper else_expr in
+    return @@ if_lowered cond then_expr else_expr
+  and multi_arg_function_decl param_list_reversed expr =
     match param_list_reversed with
     | [] -> helper expr
     | x :: xs ->
@@ -121,11 +138,7 @@ let lower ast =
       in
       let* fix = helper z_combinator in
       return @@ Let (var, App (fix, Abs (new_var, assign_part), []), in_part)
-    | Ast.If (cond, then_part, else_part) ->
-      let* cond = helper cond in
-      let* then_part = helper then_part in
-      let* else_part = helper else_part in
-      return @@ App (Var ifCheckName, cond, [ then_part; else_part ])
+    | Ast.If (cond, then_part, else_part) -> lower_if cond then_part else_part
     | Ast.Typedecl (_, [], following_expr) -> helper following_expr
     | Ast.Typedecl (name, (constr_name, arity) :: tl_contrs, f_expr) ->
       let* env = get in
@@ -146,6 +159,56 @@ let lower ast =
                , List.map (fun i -> Ast.Var i) int_parameters ))
         in
         return @@ Let (constr_name, apply_constr_fun, following_expr))
+    | Ast.Constr (name, args) ->
+      let* env = get in
+      (match StringMap.find_opt name env.constrs with
+       | None -> failwith "TODO: Undefined?"
+       | Some (id, arity) when List.length args <> arity ->
+         failwith "TODO: Arity mismatch?"
+       | Some (id, _) ->
+         let* lst = mapM helper args in
+         return @@ App (Var constructing_fun_name, Const id, lst))
+    | Ast.Match (mexpr, branches) ->
+      (*
+          let #1 = mexpr in #match #1 pat fallback
+            where fallback = 
+              #match #1 pat2 fallback2
+                where fallback2 = #err
+        *)
+      let* env = get in
+      let* mexpr = helper mexpr in
+      let mname = "#mexpr" in
+      let rec lower_pattern value success failure = function
+        | Ast.PAny -> return @@ success
+        | Ast.PValueName x -> return @@ Let (x, value, success)
+        | Ast.PConstr (constr_name, args) ->
+          let rec lower_fields value index success = function
+            | [] -> return @@ success
+            | x :: xs ->
+              let* field_name = fresh_name in
+              let* next_fields = lower_fields value (index + 1) success xs in
+              let* fields = lower_pattern (Var field_name) next_fields failure x in
+              return @@ Let (field_name, get_field value index, fields)
+          in
+          (match StringMap.find_opt constr_name env.constrs with
+           | None -> failwith "TODO: Undefined?"
+           | Some (_, arity) when List.length args <> arity ->
+             failwith "TODO: Arity mismatch"
+           | Some (id, _) ->
+             let* fields = lower_fields value 0 success args in
+             return @@ if_lowered (check_constr_id id value) fields failure)
+      in
+      let rec lower_branches = function
+        | (pat, expr) :: branches ->
+          let* success = helper expr in
+          let* failure = lower_branches branches in
+          let* branch = lower_pattern mexpr success failure pat in
+          return @@ branch
+        | [] -> return @@ Var "TODO: ERR"
+      in
+      let* branches = lower_branches branches in
+      return @@ branches
   in
-  run @@ helper ast { recs = StringMap.empty; constrs = StringMap.empty }
+  run
+  @@ helper ast { recs = StringMap.empty; constrs = StringMap.empty; fresh_name_cnt = 0 }
 ;;
