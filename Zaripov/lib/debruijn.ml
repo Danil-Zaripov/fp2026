@@ -57,7 +57,11 @@ module State = struct
 end
 
 let builtinMap = function
-  | "#if" -> Some bIf
+  | x when x = Normal.if_check_name -> Some bIf
+  | x when x = Normal.constructing_fun_name -> Some bConstr
+  | x when x = Normal.check_constr_id_name -> Some bCheckConstrId
+  | x when x = Normal.get_field_name -> Some bGetField
+  | x when x = Normal.err_name -> Some bErr
   | "=" -> Some bEq
   | "+" -> Some bAdd
   | "-" -> Some bSub
@@ -96,7 +100,7 @@ let to_debruijn ast =
       let* map = get in
       (match defaultWith (fun () -> StringMap.find_opt x map) (builtinMap x) with
        | Some x -> return @@ Var x
-       | _ -> fail "Undeclared name used")
+       | _ -> fail (Format.sprintf "Undeclared name %s used" x))
     | Normal.Let (var, assign_part, in_part) ->
       let* assign_part = local Fun.id (helper assign_part) in
       let* in_part = local (promote var) (helper in_part) in

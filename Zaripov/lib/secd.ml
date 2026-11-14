@@ -28,10 +28,14 @@ type instr =
   | Ineq
   | Or
   | And
+  | Constr of int * instr list
+  | CheckConstrId of int
+  | GetConstrField of int
   | If of instr list * instr list
+  | Err
 [@@deriving show]
 
-let isBuiltin n = n < 0
+let isBuiltinBinary n = n <= bEq && n > -100
 
 let getBuiltinInstr = function
   | n when n = bAdd -> Some Add
@@ -52,12 +56,19 @@ let getBuiltinInstr = function
 let rec compile =
   let compile_lst f = List.concat_map (fun x -> f x @ [ Apply ]) in
   function
+  | Debruijn.Var n when n = bErr -> [ Err ]
   | Debruijn.Var n -> [ Access n ]
   | Debruijn.Abs a -> [ Closure (compile a @ [ Return ]) ]
   | Debruijn.Let (a, b) -> compile a @ [ Let ] @ compile b @ [ Endlet ]
   | Debruijn.App (Var n, cond, [ then_expr; else_expr ]) when n = bIf ->
     compile cond @ [ If (compile then_expr, compile else_expr) ]
-  | Debruijn.App (Var n, r, lst) when isBuiltin n ->
+  | Debruijn.App (Var n, Debruijn.Const id, args) when n = bConstr ->
+    [ Constr (id, List.concat_map compile args) ]
+  | Debruijn.App (Var n, value, [ Const id ]) when n = bCheckConstrId ->
+    compile value @ [ CheckConstrId id ]
+  | Debruijn.App (Var n, value, [ Const field_idx ]) when n = bGetField ->
+    compile value @ [ GetConstrField field_idx ]
+  | Debruijn.App (Var n, r, lst) when isBuiltinBinary n ->
     compile r @ List.concat_map compile lst @ [ getBuiltinInstr n |> Option.get ]
   | Debruijn.App (l, r, lst) ->
     let args = r :: lst in
@@ -106,6 +117,12 @@ let rec eval1 (ins, env, stack) =
     eval ins env (Atom (Const (if y <> 0 && x <> 0 then 1 else 0)) :: stack)
   | If (then_expr, else_expr) :: ins, env, Atom (Const x) :: stack ->
     eval ((if x <> 0 then then_expr else else_expr) @ ins) env stack
+  | (Constr (_, _) as x) :: ins, env, stack -> eval ins env (Atom x :: stack)
+  | CheckConstrId id :: ins, env, (Atom (Constr (constr_id, _)) as x) :: stack ->
+    eval ins env (Atom (Const (if id = constr_id then 1 else 0)) :: x :: stack)
+  | GetConstrField field_idx :: ins, env, (Atom (Constr (_, fields)) as x) :: stack ->
+    eval ins env (Atom (List.nth fields field_idx) :: x :: stack)
+  | Err :: _, _, _ -> Error "Error: reached end of match branches."
   | _ -> Error "Unreachable by design"
 
 and eval code env stack =

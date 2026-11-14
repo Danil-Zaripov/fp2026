@@ -75,10 +75,13 @@ let ( <|> ) x def =
   | None -> def
 ;;
 
-let addedGarbage = "#"
-let recVar var = addedGarbage ^ var
-let ifCheckName = addedGarbage ^ "if"
-let constructing_fun_name = "#constr"
+let added_garbage = "#"
+let recVar var = added_garbage ^ var
+let if_check_name = added_garbage ^ "if"
+let constructing_fun_name = added_garbage ^ "constr"
+let check_constr_id_name = added_garbage ^ "check_constr_id"
+let get_field_name = added_garbage ^ "get_field"
+let err_name = added_garbage ^ "err"
 
 let z_combinator =
   let addedGarbage = "^" in
@@ -96,10 +99,10 @@ let z_combinator =
 
 let lower ast =
   let open State in
-  let check_constr_id id value = App (Var "#check_constr_id", value, [ Const id ]) in
-  let get_field value index = App (Var "#get_field", value, [ Const index ]) in
+  let check_constr_id id value = App (Var check_constr_id_name, value, [ Const id ]) in
+  let get_field value index = App (Var get_field_name, value, [ Const index ]) in
   let if_lowered cond then_expr else_expr =
-    App (Var ifCheckName, cond, [ then_expr; else_expr ])
+    App (Var if_check_name, cond, [ then_expr; else_expr ])
   in
   let rec lower_if cond then_expr else_expr =
     let* cond = helper cond in
@@ -163,7 +166,7 @@ let lower ast =
       let* env = get in
       (match StringMap.find_opt name env.constrs with
        | None -> failwith "TODO: Undefined?"
-       | Some (id, arity) when List.length args <> arity ->
+       | Some (_, arity) when List.length args <> arity ->
          failwith "TODO: Arity mismatch?"
        | Some (id, _) ->
          let* lst = mapM helper args in
@@ -177,7 +180,6 @@ let lower ast =
         *)
       let* env = get in
       let* mexpr = helper mexpr in
-      let mname = "#mexpr" in
       let rec lower_pattern value success failure = function
         | Ast.PAny -> return @@ success
         | Ast.PValueName x -> return @@ Let (x, value, success)
@@ -204,7 +206,7 @@ let lower ast =
           let* failure = lower_branches branches in
           let* branch = lower_pattern mexpr success failure pat in
           return @@ branch
-        | [] -> return @@ Var "TODO: ERR"
+        | [] -> return @@ Var err_name
       in
       let* branches = lower_branches branches in
       return @@ branches

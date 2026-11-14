@@ -80,3 +80,19 @@ let%test "fact" =
     false
   | _ -> false
 ;;
+
+let%test "match simple" =
+  match
+    "type lst = Cons of 2 | Nil of 0 in match Cons(1, Nil ()) with | Cons (x, _) -> x"
+    |> straight_to_instrs
+    |> eval
+  with
+  | Result.Ok (Const 1) -> true
+  | Result.Ok x ->
+    Format.eprintf "%s" (show_instr x);
+    false
+  | Result.Error msg ->
+    Format.eprintf "%s" msg;
+    false
+  | _ -> false
+;;

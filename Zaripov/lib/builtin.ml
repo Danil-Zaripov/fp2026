@@ -19,3 +19,7 @@ let bGeq = -10
 let bIneq = -11
 let bOr = -12
 let bAnd = -13
+let bConstr = -100
+let bCheckConstrId = -101
+let bGetField = -102
+let bErr = -103

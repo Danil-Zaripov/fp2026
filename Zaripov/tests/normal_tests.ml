@@ -32,3 +32,11 @@ let%test _ =
     Format.eprintf "%s" (show_lowered x);
     false
 ;;
+
+let%test "match" =
+  match
+    straight_to_lower
+      "type lst = Cons of 2 | Nil of 0 in match Cons(1, Nil ()) with | Cons (x, _) -> x"
+  with
+  | _ -> true
+;;
